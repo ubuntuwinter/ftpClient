@@ -4,14 +4,14 @@
 
 Client::Client(QWidget *parent)
     : QMainWindow(parent)
-    , ui(new Ui::Client)
+    , ui(new Ui::Client), model(new QStandardItemModel)
 {
     ui->setupUi(this);
     makeConnection();
     srand(time(nullptr));
     initializeModel();
 
-    // disableBeforeConnect();
+    disableBeforeConnect();
 }
 
 Client::~Client()
@@ -91,19 +91,14 @@ void Client::makeConnection()
 
 void Client::initializeModel()
 {
-    ui->fileView->setModel(&model);
-
     // 设置表格标头
-    model.setHorizontalHeaderItem(0, new QStandardItem("名称"));
-    model.setHorizontalHeaderItem(1, new QStandardItem("修改日期"));
-    model.setHorizontalHeaderItem(2, new QStandardItem("类型"));
-    model.setHorizontalHeaderItem(3, new QStandardItem("大小"));
+    model->setHorizontalHeaderItem(0, new QStandardItem("名称"));
+    model->setHorizontalHeaderItem(1, new QStandardItem("修改日期"));
+    model->setHorizontalHeaderItem(2, new QStandardItem("类型"));
+    model->setHorizontalHeaderItem(3, new QStandardItem("大小"));
 
-    // 设置列宽度
-    ui->fileView->setColumnWidth(0, 150);
-    ui->fileView->setColumnWidth(1, 100);
-    ui->fileView->setColumnWidth(2, 75);
-    ui->fileView->setColumnWidth(3, 50);
+    // 应用模型
+    ui->fileView->setModel(model);
 }
 
 void Client::disableBeforeConnect()
@@ -135,6 +130,9 @@ void Client::disableBeforeLogin()
     ui->modeBox->setChecked(false);
     ui->pwdEdit->setText("");
     ui->fileBox->setEnabled(false);
+
+    model->clear();
+    initializeModel();
 }
 
 void Client::ableAfterLogin()
@@ -184,17 +182,36 @@ void Client::createDataSocket()
 void Client::dealWithDataSocket(DEALMODE mode)
 {
     if (dataSocket->waitForReadyRead()) {
-        QString resp;
-
         switch (mode) {
-        case LIST:
+        case LIST: {
+            QString resp;
 
             while (dataSocket->bytesAvailable()) {
                 char buffer[1024] = { 0 };
                 dataSocket->readLine(buffer, 1024);
                 resp += buffer;
             }
+            QStringList list = resp.split("\r\n");
+
+            model->clear();
+
+            for (auto iter = list.begin(); iter != list.end() - 1; ++iter) {
+                QStringList listlist = (*iter).simplified().split(" ");
+                QList<QStandardItem *> row;
+                row.append(new QStandardItem(listlist[NAME]));
+                row.append(new QStandardItem(listlist[MONTH] + " " +
+                                             listlist[DAY] + " " +
+                                             listlist[TIME]));
+                row.append(new QStandardItem(listlist[PERMISSION][0] ==
+                                             'd' ? "文件夹" : ""));
+                row.append(new QStandardItem(listlist[PERMISSION][0] ==
+                                             'd' ? "" : listlist[SIZE]));
+                model->appendRow(row);
+            }
+
+            initializeModel();
             break;
+        }
 
         case RETR:
         case STOR:

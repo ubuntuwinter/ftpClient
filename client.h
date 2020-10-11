@@ -44,7 +44,7 @@ private:
     QTcpServer listenSocket;            // 监听连接
     QString ip;                         // ip地址
     QString port;                       // 端口
-    QStandardItemModel model;           // 文件数据模型
+    QStandardItemModel *model;          // 文件数据模型
     bool isConnect { false };           // 是否连接
     bool isLogin { false };             // 是否登录
 
