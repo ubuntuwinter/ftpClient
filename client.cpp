@@ -188,10 +188,7 @@ void Client::dealWithDataSocket(DEALMODE mode)
 void Client::closeDataSocket()
 {
     dataSocket->close();
-
-    if (!ui->modeBox->isChecked()) {
-        delete dataSocket;
-    }
+    delete dataSocket;
 }
 
 void Client::putLine(QString cmd)
