@@ -8,7 +8,9 @@ Client::Client(QWidget *parent)
 {
     ui->setupUi(this);
     makeConnection();
-    disableBeforeConnect();
+    srand(time(nullptr));
+
+    // disableBeforeConnect();
 }
 
 Client::~Client()
@@ -27,9 +29,8 @@ void Client::on_connectButton_clicked()
     }
     cmdSocket.abort();
     writeCMDLine("Connect to " + host + ":" + port + ".", INFO);
-    cmdSocket.connectToHost(host,
-                            QString::number(port.toInt(), 16).toInt(nullptr, 16));
-    cmdSocket.waitForConnected();
+    cmdSocket.connectToHost(host, getPort(port));
+    cmdSocket.waitForConnected(1000);
 }
 
 void Client::on_quitButton_clicked()
@@ -49,6 +50,11 @@ void Client::on_loginButton_clicked()
     ftpLogin(user, password);
 }
 
+void Client::on_refreshButton_clicked()
+{
+    ftpLIST();
+}
+
 void Client::connected()
 {
     isConnect = true;
@@ -61,7 +67,8 @@ void Client::disconnected()
 {
     isConnect = false;
     disableBeforeConnect();
-    writeCMDLine("Connection has been aborted.", INFO);
+    writeCMDLine("Connection has been aborted.",       INFO);
+    writeCMDLine("----------------------------------", DEFAULT);
 }
 
 void Client::error(QAbstractSocket::SocketError)
@@ -84,6 +91,8 @@ void Client::makeConnection()
 void Client::disableBeforeConnect()
 {
     disableBeforeLogin();
+    ui->connectButton->setEnabled(true);
+    ui->quitButton->setEnabled(false);
     ui->loginBox->setEnabled(false);
     ui->hostEditor->setReadOnly(false);
     ui->portEditor->setReadOnly(false);
@@ -91,6 +100,8 @@ void Client::disableBeforeConnect()
 
 void Client::ableAfterConnect()
 {
+    ui->connectButton->setEnabled(false);
+    ui->quitButton->setEnabled(true);
     ui->loginBox->setEnabled(true);
     ui->hostEditor->setReadOnly(true);
     ui->portEditor->setReadOnly(true);
@@ -102,12 +113,94 @@ void Client::disableBeforeLogin()
     ui->passwordEditor->setText("");
     ui->userEditor->setReadOnly(false);
     ui->passwordEditor->setReadOnly(false);
+    ui->loginButton->setEnabled(true);
+    ui->modeBox->setChecked(false);
+    ui->pwdEdit->setText("");
+    ui->fileBox->setEnabled(false);
 }
 
-void Client::ableAfterLsogin()
+void Client::ableAfterLogin()
 {
     ui->userEditor->setReadOnly(true);
     ui->passwordEditor->setReadOnly(true);
+    ui->loginButton->setEnabled(false);
+    ui->fileBox->setEnabled(true);
+    ftpPWD();
+    ftpLIST();
+}
+
+void Client::squeeze()
+{
+    char buffer[1024] = { 0 };
+
+    while (cmdSocket.bytesAvailable()) {
+        cmdSocket.readLine(buffer, 1024);
+    }
+}
+
+quint16 Client::getPort(QString str)
+{
+    return QString::number(str.toInt(), 16).toInt(nullptr,
+                                                  16);
+}
+
+void Client::createDataSocket()
+{
+    if (!ui->modeBox->isChecked()) {
+        dataSocket = new QTcpSocket;
+        dataSocket->connectToHost(ip, getPort(port));
+        dataSocket->waitForConnected(1000);
+    }
+    else {
+        if (listenSocket.waitForNewConnection(1000)) {
+            dataSocket = listenSocket.nextPendingConnection();
+            listenSocket.close();
+        }
+        else {
+            listenSocket.close();
+            throw QString("Time out.");
+        }
+    }
+}
+
+void Client::dealWithDataSocket(DEALMODE mode)
+{
+    if (dataSocket->waitForReadyRead()) {
+        QString resp;
+
+        switch (mode) {
+        case LIST:
+
+            while (dataSocket->bytesAvailable()) {
+                char buffer[1024] = { 0 };
+                dataSocket->readLine(buffer, 1024);
+                resp += buffer;
+            }
+            break;
+
+        case RETR:
+        case STOR:
+            break;
+        }
+    }
+}
+
+void Client::closeDataSocket()
+{
+    dataSocket->close();
+
+    if (!ui->modeBox->isChecked()) {
+        delete dataSocket;
+    }
+}
+
+void Client::putLine(QString cmd)
+{
+    if (!isConnect) {
+        throw QString("Time out.");
+    }
+    cmdSocket.write(cmd.toLatin1(), cmd.length());
+    cmdSocket.waitForBytesWritten(1000);
 }
 
 QString Client::getResp()
@@ -116,20 +209,28 @@ QString Client::getResp()
         return "";
     }
 
-    if (cmdSocket.waitForReadyRead() == false) {
-        return "Timeout.";
+    if (cmdSocket.waitForReadyRead(1000) == false) {
+        throw QString("Time out.");
     }
     QString resp;
 
+    char buffer[1024] = { 0 };
+
     while (cmdSocket.bytesAvailable()) {
-        char buffer[1024] = { 0 };
-        cmdSocket.read(buffer, 1024);
+        cmdSocket.readLine(buffer, 1024);
+        bool readline = false;
 
         while (buffer[strlen(buffer) - 1] == '\r' ||
                buffer[strlen(buffer) - 1] == '\n') {
             buffer[strlen(buffer) - 1] = '\0';
+            readline = true;
         }
+
         resp += buffer;
+
+        if (readline) {
+            break;
+        }
     }
 
     if ((resp[0] == '4') || (resp[0] == '5')) {
@@ -141,14 +242,7 @@ QString Client::getResp()
 
 QString Client::putCMD(QString cmd)
 {
-    if (!isConnect) {
-        return "";
-    }
-    cmdSocket.write(cmd.toLatin1(), cmd.length());
-
-    if (cmdSocket.waitForBytesWritten() == false) {
-        return "Timeout.";
-    }
+    putLine(cmd);
     return getResp();
 }
 
@@ -157,6 +251,9 @@ void Client::writeCMDLine(QString str, WRITETYPE type)
     QString color = "black";
 
     switch (type) {
+    case DEFAULT:
+        break;
+
     case INFO:
         color = "#000099"; break;
 
@@ -194,11 +291,12 @@ void Client::ftpLogin(QString user, QString passwd)
         }
 
         if (resp[0] == '2') {
-            ableAfterLsogin();
+            ableAfterLogin();
         }
     } catch (QString& e) {
         QMessageBox::critical(this, "Error", e);
         writeCMDLine(e, ERROR);
+        squeeze();
     }
 }
 
@@ -210,5 +308,120 @@ void Client::ftpQUIT()
     } catch (QString& e) {
         QMessageBox::critical(this, "Error", e);
         writeCMDLine(e, ERROR);
+        squeeze();
+    }
+}
+
+void Client::ftpPWD()
+{
+    try {
+        writeCMDLine("PWD", SEND);
+        QString resp = putCMD("PWD\r\n");
+        writeCMDLine(resp,  RECEIVE);
+
+        // QString pattern = "(?<=\").*(?=\")"; 其实用正向、反向肯定预查更好
+        QRegExp reg("\".*\"");
+        int     pos = resp.indexOf(reg);
+
+        if (pos >= 0) {
+            QString match = reg.cap(0);
+            match.remove(0, 1); match.remove(match.length() - 1, 1);
+            ui->pwdEdit->setText(match);
+        }
+    } catch (QString& e) {
+        QMessageBox::critical(this, "Error", e);
+        writeCMDLine(e, ERROR);
+        squeeze();
+    }
+}
+
+void Client::ftpTYPE()
+{
+    try {
+        writeCMDLine("TYPE I", SEND);
+        QString resp = putCMD("TYPE I\r\n");
+        writeCMDLine(resp,     RECEIVE);
+    } catch (QString& e) {
+        QMessageBox::critical(this, "Error", e);
+        writeCMDLine(e, ERROR);
+        squeeze();
+    }
+}
+
+void Client::ftpPORT()
+{
+    QString cmd = "PORT ";
+    int     port1 = 128 + (rand() % 64);
+    int     port2 = rand() % 256;
+
+    port = QString::number(port1 * 256 + port2);
+    listenSocket.close();
+    listenSocket.listen(QHostAddress::Any, getPort(port));
+    QStringList list = cmdSocket.localAddress().toString().split(".");
+
+    while (!listenSocket.isListening()) {
+        QThread::msleep(100);
+    }
+
+    cmd += list[0] + "," + list[1] + "," + list[2] + "," + list[3] + "," +
+           QString::number(port1) + "," + QString::number(port2);
+    writeCMDLine(cmd,                  SEND);
+    writeCMDLine(putCMD(cmd + "\r\n"), RECEIVE);
+}
+
+void Client::ftpPASV()
+{
+    writeCMDLine("PASV", SEND);
+    QString resp = putCMD("PASV\r\n");
+
+    writeCMDLine(resp,   RECEIVE);
+
+    QRegExp reg("[(].*[)]");
+    int     pos = resp.indexOf(reg);
+
+    if (pos >= 0) {
+        QString match = reg.cap(0);
+        match.remove(0, 1); match.remove(match.length() - 1, 1);
+        QStringList list = match.split(",");
+        ip = list[0] + "." + list[1] + "." + list[2] + "." + list[3];
+        port = QString::number(list[4].toInt() * 256 + list[5].toInt());
+    }
+}
+
+void Client::ftpLIST()
+{
+    ftpTYPE();
+
+    try {
+        if (!ui->modeBox->isChecked()) {
+            ftpPASV();
+        } else {
+            ftpPORT();
+        }
+
+        // 键入LIST
+        writeCMDLine("LIST", SEND);
+        putLine("LIST\r\n");
+
+        // 打开数据传输
+        createDataSocket();
+
+        // 回应消息1
+        QString resp = getResp();
+        writeCMDLine(resp, RECEIVE);
+
+        // 处理数据
+        dealWithDataSocket(LIST);
+
+        // 关闭数据传输
+        closeDataSocket();
+
+        // 回应消息2
+        resp = getResp();
+        writeCMDLine(resp, RECEIVE);
+    } catch (QString& e) {
+        QMessageBox::critical(this, "Error", e);
+        writeCMDLine(e, ERROR);
+        squeeze();
     }
 }

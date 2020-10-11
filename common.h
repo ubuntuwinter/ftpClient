@@ -2,12 +2,19 @@
 #define COMMON_H
 
 enum WRITETYPE {
-    INFO = 0,
+    DEFAULT,
+    INFO,
     SEND,
     RECEIVE,
     DATA,
     WARNING,
     ERROR
+};
+
+enum DEALMODE {
+    LIST,
+    RETR,
+    STOR
 };
 
 #endif // COMMON_H

@@ -17,15 +17,18 @@
    <widget class="QWidget" name="layoutWidget">
     <property name="geometry">
      <rect>
-      <x>60</x>
-      <y>140</y>
-      <width>594</width>
-      <height>324</height>
+      <x>71</x>
+      <y>21</y>
+      <width>576</width>
+      <height>437</height>
      </rect>
     </property>
     <layout class="QVBoxLayout" name="verticalLayout_2">
      <item>
       <widget class="QGroupBox" name="connectBox">
+       <property name="title">
+        <string>连接</string>
+       </property>
        <layout class="QHBoxLayout" name="horizontalLayout_8">
         <item>
          <layout class="QHBoxLayout" name="horizontalLayout_7">
@@ -87,7 +90,7 @@
      <item>
       <widget class="QGroupBox" name="loginBox">
        <property name="title">
-        <string/>
+        <string>登录</string>
        </property>
        <layout class="QVBoxLayout" name="verticalLayout">
         <item>
@@ -102,7 +105,11 @@
              </widget>
             </item>
             <item>
-             <widget class="QLineEdit" name="userEditor"/>
+             <widget class="QLineEdit" name="userEditor">
+              <property name="text">
+               <string>water</string>
+              </property>
+             </widget>
             </item>
             <item>
              <widget class="QLabel" name="passwordLabel">
@@ -112,7 +119,11 @@
              </widget>
             </item>
             <item>
-             <widget class="QLineEdit" name="passwordEditor"/>
+             <widget class="QLineEdit" name="passwordEditor">
+              <property name="text">
+               <string>water</string>
+              </property>
+             </widget>
             </item>
            </layout>
           </item>
@@ -125,7 +136,55 @@
               </property>
              </widget>
             </item>
+            <item>
+             <widget class="QCheckBox" name="modeBox">
+              <property name="text">
+               <string>PORT</string>
+              </property>
+             </widget>
+            </item>
            </layout>
+          </item>
+         </layout>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item>
+      <widget class="QGroupBox" name="fileBox">
+       <property name="title">
+        <string>文件管理</string>
+       </property>
+       <layout class="QVBoxLayout" name="verticalLayout_4">
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_6">
+          <item>
+           <widget class="QLineEdit" name="pwdEdit">
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="refreshButton">
+            <property name="text">
+             <string>刷新</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="downloadButton">
+            <property name="text">
+             <string>下载</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="uploadButton">
+            <property name="text">
+             <string>上传</string>
+            </property>
+           </widget>
           </item>
          </layout>
         </item>
@@ -135,7 +194,7 @@
      <item>
       <widget class="QGroupBox" name="cmdBox">
        <property name="title">
-        <string/>
+        <string>命令行提示</string>
        </property>
        <layout class="QVBoxLayout" name="verticalLayout_3">
         <item>
