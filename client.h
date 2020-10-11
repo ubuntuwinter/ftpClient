@@ -9,6 +9,7 @@
 #include <QMessageBox>
 #include <QHostAddress>
 #include <QThread>
+#include <QStandardItemModel>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class Client; }
@@ -38,17 +39,19 @@ private slots:
 private:
 
     Ui::Client *ui;
-    QTcpSocket cmdSocket;     // 命令连接
-    QTcpSocket *dataSocket;   // 数据连接
-    QTcpServer listenSocket;  // 监听连接
-    QString ip;               // ip地址
-    QString port;             // 端口
-    bool isConnect { false }; // 是否连接
-    bool isLogin { false };   // 是否登录
+    QTcpSocket cmdSocket;               // 命令连接
+    QTcpSocket *dataSocket { nullptr }; // 数据连接
+    QTcpServer listenSocket;            // 监听连接
+    QString ip;                         // ip地址
+    QString port;                       // 端口
+    QStandardItemModel model;           // 文件数据模型
+    bool isConnect { false };           // 是否连接
+    bool isLogin { false };             // 是否登录
 
 private:
 
     void    makeConnection();                  // 建立信号槽
+    void    initializeModel();                 // 初始化文件模型
     void    disableBeforeConnect();            // 禁止其他组件
     void    ableAfterConnect();                // 允许其他组件
     void    disableBeforeLogin();              // 禁止其他组件

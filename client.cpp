@@ -9,6 +9,7 @@ Client::Client(QWidget *parent)
     ui->setupUi(this);
     makeConnection();
     srand(time(nullptr));
+    initializeModel();
 
     // disableBeforeConnect();
 }
@@ -86,6 +87,23 @@ void Client::makeConnection()
             SLOT(disconnected()));
     connect(&cmdSocket, SIGNAL(error(QAbstractSocket::SocketError)), this,
             SLOT(error(QAbstractSocket::SocketError)));
+}
+
+void Client::initializeModel()
+{
+    ui->fileView->setModel(&model);
+
+    // 设置表格标头
+    model.setHorizontalHeaderItem(0, new QStandardItem("名称"));
+    model.setHorizontalHeaderItem(1, new QStandardItem("修改日期"));
+    model.setHorizontalHeaderItem(2, new QStandardItem("类型"));
+    model.setHorizontalHeaderItem(3, new QStandardItem("大小"));
+
+    // 设置列宽度
+    ui->fileView->setColumnWidth(0, 150);
+    ui->fileView->setColumnWidth(1, 100);
+    ui->fileView->setColumnWidth(2, 75);
+    ui->fileView->setColumnWidth(3, 50);
 }
 
 void Client::disableBeforeConnect()
@@ -269,7 +287,7 @@ void Client::writeCMDLine(QString str, WRITETYPE type)
     case ERROR:
         color = "#cc0000"; break;
     }
-    QString html = "<p style='color:" + color + ";'>" + str + "</p>";
+    QString html = "<span style='color:" + color + ";'>" + str + "</span><br/>";
 
     ui->cmdLine->append(html);
 }
