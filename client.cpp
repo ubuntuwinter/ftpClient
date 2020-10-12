@@ -42,7 +42,7 @@ void Client::on_connectButton_clicked()
     writeCMDLine("Connect to " + host + ":" + port + ".", INFO);
     cmdSocket.connectToHost(host, getPort(port));
 
-    if (cmdSocket.waitForConnected(3000) == false) {
+    if (cmdSocket.waitForConnected(2000) == false) {
         QMessageBox::critical(this, "Error", "Cann't connect server.");
         writeCMDLine("Cann't connect server.", ERROR);
     }
@@ -218,10 +218,13 @@ void Client::createDataSocket()
     if (!ui->modeBox->isChecked()) {
         dataSocket = new QTcpSocket;
         dataSocket->connectToHost(ip, getPort(port));
-        dataSocket->waitForConnected(3000);
+
+        if (dataSocket->waitForConnected(2000)) {
+            throw QString("Time out.");
+        }
     }
     else {
-        if (listenSocket.waitForNewConnection(1000)) {
+        if (listenSocket.waitForNewConnection(2000)) {
             dataSocket = listenSocket.nextPendingConnection();
             listenSocket.close();
         }
@@ -238,7 +241,7 @@ void Client::dealWithDataSocket(DEALMODE mode)
     case LIST: {
         QString resp;
 
-        if (dataSocket->waitForReadyRead(1000)) {
+        if (dataSocket->waitForReadyRead(2000)) {
             while (dataSocket->bytesAvailable()) {
                 char buffer[1024] = { 0 };
                 dataSocket->readLine(buffer, 1024);
@@ -299,7 +302,7 @@ void Client::putLine(QString cmd)
         throw QString("Not connect.");
     }
     cmdSocket.write(cmd.toLatin1(), cmd.length());
-    cmdSocket.waitForBytesWritten(3000);
+    cmdSocket.waitForBytesWritten(2000);
 }
 
 QString Client::getResp()
@@ -308,7 +311,7 @@ QString Client::getResp()
         return "";
     }
 
-    if (cmdSocket.waitForReadyRead(3000) == false) {
+    if (cmdSocket.waitForReadyRead(2000) == false) {
         throw QString("Time out.");
     }
     QString resp;
@@ -434,9 +437,15 @@ void Client::ftpLogin(QString user, QString passwd)
         writeCMDLine(resp,           RECEIVE);
 
         if (resp[0] == '3') {
-            writeCMDLine("PASS " + passwd, SEND);
+            writeCMDLine(QString("PASS ") + QString("********"), SEND);
             resp = putCMD("PASS " + passwd + "\r\n");
-            writeCMDLine(resp,             RECEIVE);
+            writeCMDLine(resp,                                   RECEIVE);
+        }
+
+        if (resp[0] == '3') {
+            writeCMDLine("ACCT " + user, SEND);
+            resp = putCMD("ACCT " + user + "\r\n");
+            writeCMDLine(resp,           RECEIVE);
         }
 
         if (resp[0] == '2') {
