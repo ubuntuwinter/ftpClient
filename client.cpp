@@ -193,6 +193,7 @@ void Client::ableAfterLogin()
     ui->passwordEditor->setReadOnly(true);
     ui->loginButton->setEnabled(false);
     ui->fileBox->setEnabled(true);
+    ftpSYST();
     ftpPWD();
     ftpLIST();
 }
@@ -362,7 +363,7 @@ void Client::writeCMDLine(QString str, WRITETYPE type)
         color = "#336633"; break;
 
     case DATA:
-        color = "#333333"; break;
+        color = "#cccccc"; break;
 
     case WARNING:
         color = "#cc9900"; break;
@@ -453,6 +454,18 @@ void Client::ftpQUIT()
     try {
         writeCMDLine("QUIT",             SEND);
         writeCMDLine(putCMD("QUIT\r\n"), RECEIVE);
+    } catch (QString& e) {
+        QMessageBox::critical(this, "Error", e);
+        writeCMDLine(e, ERROR);
+        squeeze();
+    }
+}
+
+void Client::ftpSYST()
+{
+    try {
+        writeCMDLine("SYST",             SEND);
+        writeCMDLine(putCMD("SYST\r\n"), RECEIVE);
     } catch (QString& e) {
         QMessageBox::critical(this, "Error", e);
         writeCMDLine(e, ERROR);

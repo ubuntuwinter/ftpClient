@@ -82,6 +82,7 @@ private:
     void    ftpQUIT();                  // 退出
     void    ftpUSER(QString user);      // 用户名
     void    ftpPASS(QString passwd);    // 密码
+    void    ftpSYST();                  // 显示系统信息
     void    ftpPWD();                   // 显示当前目录
     void    ftpTYPE();                  // 编码
     void    ftpPORT();                  // 主动模式
