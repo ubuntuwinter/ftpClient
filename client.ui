@@ -116,6 +116,9 @@
                <property name="text">
                 <string>water</string>
                </property>
+               <property name="echoMode">
+                <enum>QLineEdit::Password</enum>
+               </property>
               </widget>
              </item>
             </layout>
@@ -162,6 +165,13 @@
             <widget class="QPushButton" name="newButton">
              <property name="text">
               <string>新建</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="deleteButton">
+             <property name="text">
+              <string>删除</string>
              </property>
             </widget>
            </item>

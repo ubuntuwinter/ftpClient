@@ -23,7 +23,9 @@ Client::~Client()
 void Client::closeEvent(QCloseEvent *)
 {
     if (isConnect) {
-        ftpQUIT();
+        cmdSocket.close();
+        isConnect = false;
+        disableBeforeConnect();
     }
 }
 
@@ -66,6 +68,42 @@ void Client::on_loginButton_clicked()
 void Client::on_refreshButton_clicked()
 {
     ftpLIST();
+}
+
+void Client::on_newButton_clicked()
+{
+    QString newDirName = QInputDialog::getText(this, "新建文件夹", "请输入新建文件夹的名称");
+
+    if (newDirName.isEmpty()) return;
+
+    ftpMKD(newDirName);
+
+    if (refresh) { ftpLIST(); refresh = false; }
+}
+
+void Client::on_deleteButton_clicked()
+{
+    QModelIndex index = ui->fileView->currentIndex();
+
+    if (model->data(model->index(index.row(), 2)).toString() == "文件夹") {
+        ftpRMD(model->data(model->index(index.row(), 0)).toString());
+    } else {
+        ftpDELE(model->data(model->index(index.row(), 0)).toString());
+    }
+
+    if (refresh) { ftpLIST();  refresh = false; }
+}
+
+void Client::on_renameButton_clicked()
+{
+    QModelIndex index = ui->fileView->currentIndex();
+    QString     newName = QInputDialog::getText(this, "重命名", "请输入新的名称");
+
+    if (newName.isEmpty()) return;
+
+    ftpRename(model->data(model->index(index.row(), 0)).toString(), newName);
+
+    if (refresh) { ftpLIST();  refresh = false; }
 }
 
 void Client::on_fileView_doubleClicked(const QModelIndex& index)
@@ -533,10 +571,10 @@ void Client::ftpLIST()
     }
 }
 
-void Client::ftpCWD(QString dir)
+void Client::ftpCWD(QString dirname)
 {
     try {
-        QString cmd = "CWD " + dir;
+        QString cmd = "CWD " + dirname;
         writeCMDLine(cmd,  SEND);
         QString resp = putCMD(cmd + "\r\n");
         writeCMDLine(resp, RECEIVE);
@@ -546,4 +584,82 @@ void Client::ftpCWD(QString dir)
         writeCMDLine(e, ERROR);
         squeeze();
     }
+}
+
+void Client::ftpMKD(QString newDirName)
+{
+    try {
+        QString cmd = "MKD " + newDirName;
+        writeCMDLine(cmd,  SEND);
+        QString resp = putCMD(cmd + "\r\n");
+        writeCMDLine(resp, RECEIVE);
+        refresh = true;
+    } catch (QString& e) {
+        QMessageBox::critical(this, "Error", e);
+        writeCMDLine(e, ERROR);
+        squeeze();
+    }
+}
+
+void Client::ftpRMD(QString dirname)
+{
+    try {
+        QString cmd = "RMD " + dirname;
+        writeCMDLine(cmd,  SEND);
+        QString resp = putCMD(cmd + "\r\n");
+        writeCMDLine(resp, RECEIVE);
+        refresh = true;
+    } catch (QString& e) {
+        QMessageBox::critical(this, "Error", e);
+        writeCMDLine(e, ERROR);
+        squeeze();
+    }
+}
+
+void Client::ftpDELE(QString filename)
+{
+    try {
+        QString cmd = "DELE " + filename;
+        writeCMDLine(cmd,  SEND);
+        QString resp = putCMD(cmd + "\r\n");
+        writeCMDLine(resp, RECEIVE);
+        refresh = true;
+    } catch (QString& e) {
+        QMessageBox::critical(this, "Error", e);
+        writeCMDLine(e, ERROR);
+        squeeze();
+    }
+}
+
+void Client::ftpRename(QString oldname, QString newname)
+{
+    try {
+        ftpRNFR(oldname);
+        ftpRNTO(newname);
+        refresh = true;
+    } catch (QString& e) {
+        QMessageBox::critical(this, "Error", e);
+        writeCMDLine(e, ERROR);
+        squeeze();
+    }
+}
+
+void Client::ftpRNFR(QString name)
+{
+    QString cmd = "RNFR " + name;
+
+    writeCMDLine(cmd,  SEND);
+    QString resp = putCMD(cmd + "\r\n");
+
+    writeCMDLine(resp, RECEIVE);
+}
+
+void Client::ftpRNTO(QString name)
+{
+    QString cmd = "RNTO " + name;
+
+    writeCMDLine(cmd,  SEND);
+    QString resp = putCMD(cmd + "\r\n");
+
+    writeCMDLine(resp, RECEIVE);
 }

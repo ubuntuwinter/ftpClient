@@ -10,6 +10,7 @@
 #include <QHostAddress>
 #include <QThread>
 #include <QStandardItemModel>
+#include <QInputDialog>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class Client; }
@@ -34,11 +35,14 @@ private slots:
 
 private slots:
 
-    void on_connectButton_clicked();
-    void on_quitButton_clicked();
-    void on_loginButton_clicked();
-    void on_refreshButton_clicked();
-    void on_fileView_doubleClicked(const QModelIndex& index);
+    void on_connectButton_clicked();                          // 连接
+    void on_quitButton_clicked();                             // 退出连接
+    void on_loginButton_clicked();                            // 登录
+    void on_refreshButton_clicked();                          // 刷新
+    void on_newButton_clicked();                              // 新建
+    void on_deleteButton_clicked();                           // 删除
+    void on_renameButton_clicked();                           // 重命名
+    void on_fileView_doubleClicked(const QModelIndex& index); // 双击
 
 private:
 
@@ -74,15 +78,22 @@ private:
 
     // ftp命令
     void    ftpLogin(QString user,
-                     QString passwd); // 登录
-    void    ftpQUIT();                // 退出
-    void    ftpUSER(QString user);    // 用户名
-    void    ftpPASS(QString passwd);  // 密码
-    void    ftpPWD();                 // 显示当前目录
-    void    ftpTYPE();                // 编码
-    void    ftpPORT();                // 主动模式
-    void    ftpPASV();                // 被动模式
-    void    ftpLIST();                // 显示当前目录下文件
-    void    ftpCWD(QString dir);      // 进入目录
+                     QString passwd);   // 登录
+    void    ftpQUIT();                  // 退出
+    void    ftpUSER(QString user);      // 用户名
+    void    ftpPASS(QString passwd);    // 密码
+    void    ftpPWD();                   // 显示当前目录
+    void    ftpTYPE();                  // 编码
+    void    ftpPORT();                  // 主动模式
+    void    ftpPASV();                  // 被动模式
+    void    ftpLIST();                  // 显示当前目录下文件
+    void    ftpCWD(QString dirname);    // 进入目录
+    void    ftpMKD(QString newDirName); // 新建文件夹
+    void    ftpRMD(QString dirname);    // 删除文件夹
+    void    ftpDELE(QString filename);  // 删除文件
+    void    ftpRename(QString oldname,
+                      QString newname); // 重命名文件
+    void    ftpRNFR(QString name);      // 重命名FROM
+    void    ftpRNTO(QString name);      // 重命名TO
 };
 #endif // CLIENT_H
