@@ -11,7 +11,7 @@ Client::Client(QWidget *parent)
     srand(time(nullptr));
     initializeModel();
 
-    // disableBeforeConnect();
+    disableBeforeConnect();
 }
 
 Client::~Client()
@@ -42,7 +42,7 @@ void Client::on_connectButton_clicked()
     writeCMDLine("Connect to " + host + ":" + port + ".", INFO);
     cmdSocket.connectToHost(host, getPort(port));
 
-    if (cmdSocket.waitForConnected(2000) == false) {
+    if (cmdSocket.waitForConnected(5000) == false) {
         QMessageBox::critical(this, "Error", "Cann't connect server.");
         writeCMDLine("Cann't connect server.", ERROR);
     }
@@ -104,6 +104,49 @@ void Client::on_renameButton_clicked()
     ftpRename(model->data(model->index(index.row(), 0)).toString(), newName);
 
     if (refresh) { ftpLIST();  refresh = false; }
+}
+
+void Client::on_uploadButton_clicked()
+{
+    QString openFile = QFileDialog::getOpenFileName(this,
+                                                    tr("Open File"),
+                                                    "./",
+                                                    tr("All Files(*.*)"));
+
+    if (!openFile.isEmpty()) {
+        QStringList list = openFile.split("/");
+        QString     filename = *(list.end() - 1);
+        ftpSTOR(openFile, filename);
+    }
+
+    if (refresh) { ftpLIST();  refresh = false; }
+}
+
+void Client::on_downloadButton_clicked()
+{
+    QModelIndex index = ui->fileView->currentIndex();
+
+    if (model->data(model->index(index.row(),
+                                 0)).toString().isEmpty() ||
+        (model->data(model->index(index.row(), 2)).toString() == "文件夹")) {
+        QMessageBox::information(this, "提示", "请选择一个文件");
+    } else {
+        QString remoteFileName =
+            model->data(model->index(index.row(), 0)).toString();
+        QString saveFile = QFileDialog::getSaveFileName(this,
+                                                        tr("Save File"),
+                                                        "./" + remoteFileName,
+                                                        "*");
+
+        if (!saveFile.isEmpty()) {
+            ftpRETR(saveFile, remoteFileName);
+        }
+    }
+}
+
+void Client::on_abortButton_clicked()
+{
+    ftpABOR();
 }
 
 void Client::on_fileView_doubleClicked(const QModelIndex& index)
@@ -219,29 +262,32 @@ void Client::createDataSocket()
         dataSocket = new QTcpSocket;
         dataSocket->connectToHost(ip, getPort(port));
 
-        if (dataSocket->waitForConnected(2000)) {
+        if (!dataSocket->waitForConnected(3000)) {
+            cmdSocket.close();
+            delete dataSocket;
             throw QString("Time out.");
         }
     }
     else {
-        if (listenSocket.waitForNewConnection(2000)) {
+        if (listenSocket.waitForNewConnection(3000)) {
             dataSocket = listenSocket.nextPendingConnection();
             listenSocket.close();
         }
         else {
             listenSocket.close();
+            cmdSocket.close();
             throw QString("Time out.");
         }
     }
 }
 
-void Client::dealWithDataSocket(DEALMODE mode)
+void Client::dealWithDataSocket(DEALMODE mode, QString filename)
 {
     switch (mode) {
     case LIST: {
         QString resp;
 
-        if (dataSocket->waitForReadyRead(2000)) {
+        if (dataSocket->waitForReadyRead(5000)) {
             while (dataSocket->bytesAvailable()) {
                 char buffer[1024] = { 0 };
                 dataSocket->readLine(buffer, 1024);
@@ -277,13 +323,38 @@ void Client::dealWithDataSocket(DEALMODE mode)
         row.append(new QStandardItem(""));
         model->insertRow(0, row);
 
-        initializeModel();
         break;
     }
 
-    case RETR:
-    case STOR:
+    case RETR: {
+        QFile file(filename);
+
+        if (dataSocket->waitForReadyRead(5000)) {
+            file.open(QIODevice::WriteOnly);
+
+            while (dataSocket->bytesAvailable()) {
+                QByteArray block = dataSocket->read(1024 * 1024);
+                file.write(block);
+                dataSocket->waitForReadyRead(5000);
+            }
+            file.close();
+        }
         break;
+    }
+
+    case STOR: {
+        QFile file(filename);
+        file.open(QIODevice::ReadOnly);
+        QByteArray block = file.readAll();
+        int size = block.size();
+
+        while (size > 0) {
+            size -= dataSocket->write(block);
+            dataSocket->waitForBytesWritten(5000);
+        }
+        file.close();
+        break;
+    }
     }
 
     // 关闭数据传输
@@ -302,7 +373,7 @@ void Client::putLine(QString cmd)
         throw QString("Not connect.");
     }
     cmdSocket.write(cmd.toLatin1(), cmd.length());
-    cmdSocket.waitForBytesWritten(2000);
+    cmdSocket.waitForBytesWritten(5000);
 }
 
 QString Client::getResp()
@@ -311,7 +382,7 @@ QString Client::getResp()
         return "";
     }
 
-    if (cmdSocket.waitForReadyRead(2000) == false) {
+    if (cmdSocket.waitForReadyRead(5000) == false) {
         throw QString("Time out.");
     }
     QString resp;
@@ -350,6 +421,10 @@ QString Client::putCMD(QString cmd)
 
 void Client::writeCMDLine(QString str, WRITETYPE type)
 {
+    if (!canWrite) {
+        return;
+    }
+
     QString color = "black";
 
     switch (type) {
@@ -458,6 +533,16 @@ void Client::ftpLogin(QString user, QString passwd)
     }
 }
 
+void Client::ftpABOR()
+{
+    try {
+        writeCMDLine("ABOR",             SEND);
+        writeCMDLine(putCMD("ABOR\r\n"), RECEIVE);
+    } catch (QString& e) {
+        writeCMDLine(e, ERROR); squeeze();
+    }
+}
+
 void Client::ftpQUIT()
 {
     try {
@@ -529,10 +614,6 @@ void Client::ftpPORT()
     listenSocket.listen(QHostAddress::Any, getPort(port));
     QStringList list = cmdSocket.localAddress().toString().split(".");
 
-    while (!listenSocket.isListening()) {
-        QThread::msleep(100);
-    }
-
     cmd += list[0] + "," + list[1] + "," + list[2] + "," + list[3] + "," +
            QString::number(port1) + "," + QString::number(port2);
     writeCMDLine(cmd,                  SEND);
@@ -582,6 +663,7 @@ void Client::ftpLIST()
 
         // 处理数据
         dealWithDataSocket(LIST);
+        initializeModel();
 
         // 回应消息2
         resp = getResp();
@@ -684,4 +766,79 @@ void Client::ftpRNTO(QString name)
     QString resp = putCMD(cmd + "\r\n");
 
     writeCMDLine(resp, RECEIVE);
+}
+
+void Client::ftpSTOR(QString localFileName, QString remoteFileName)
+{
+    ftpTYPE();
+
+    try {
+        if (!ui->modeBox->isChecked()) {
+            ftpPASV();
+        } else {
+            ftpPORT();
+        }
+
+        // 键入LIST
+        QString cmd = "STOR " + remoteFileName;
+        writeCMDLine(cmd, SEND);
+        putLine(cmd + "\r\n");
+
+        // 打开数据传输
+        createDataSocket();
+
+        // 回应消息1
+        QString resp = getResp();
+        writeCMDLine(resp, RECEIVE);
+
+        // 处理数据
+        dealWithDataSocket(STOR, localFileName);
+
+        // 回应消息2
+        resp = getResp();
+        writeCMDLine(resp, RECEIVE);
+
+        // 刷新
+        refresh = true;
+    } catch (QString& e) {
+        QMessageBox::critical(this, "Error", e);
+        writeCMDLine(e, ERROR);
+        squeeze();
+    }
+}
+
+void Client::ftpRETR(QString localFileName, QString remoteFileName)
+{
+    ftpTYPE();
+
+    try {
+        if (!ui->modeBox->isChecked()) {
+            ftpPASV();
+        } else {
+            ftpPORT();
+        }
+
+        // 键入LIST
+        QString cmd = "RETR " + remoteFileName;
+        writeCMDLine(cmd, SEND);
+        putLine(cmd + "\r\n");
+
+        // 打开数据传输
+        createDataSocket();
+
+        // 回应消息1
+        QString resp = getResp();
+        writeCMDLine(resp, RECEIVE);
+
+        // 处理数据
+        dealWithDataSocket(RETR, localFileName);
+
+        // 回应消息2
+        resp = getResp();
+        writeCMDLine(resp, RECEIVE);
+    } catch (QString& e) {
+        QMessageBox::critical(this, "Error", e);
+        writeCMDLine(e, ERROR);
+        squeeze();
+    }
 }

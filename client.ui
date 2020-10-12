@@ -37,7 +37,7 @@
              <item>
               <widget class="QLineEdit" name="hostEditor">
                <property name="text">
-                <string>182.92.88.252</string>
+                <string/>
                </property>
               </widget>
              </item>
@@ -100,7 +100,7 @@
              <item>
               <widget class="QLineEdit" name="userEditor">
                <property name="text">
-                <string>webstorm</string>
+                <string/>
                </property>
               </widget>
              </item>
@@ -114,7 +114,7 @@
              <item>
               <widget class="QLineEdit" name="passwordEditor">
                <property name="text">
-                <string>lyh26239231</string>
+                <string/>
                </property>
                <property name="echoMode">
                 <enum>QLineEdit::Password</enum>
@@ -196,6 +196,13 @@
              </property>
             </widget>
            </item>
+           <item>
+            <widget class="QPushButton" name="abortButton">
+             <property name="text">
+              <string>中止</string>
+             </property>
+            </widget>
+           </item>
           </layout>
          </item>
          <item>
@@ -218,9 +225,6 @@
            </property>
            <property name="gridStyle">
             <enum>Qt::NoPen</enum>
-           </property>
-           <property name="sortingEnabled">
-            <bool>true</bool>
            </property>
            <attribute name="verticalHeaderVisible">
             <bool>false</bool>
