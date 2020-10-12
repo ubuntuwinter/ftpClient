@@ -11,12 +11,20 @@ Client::Client(QWidget *parent)
     srand(time(nullptr));
     initializeModel();
 
-    disableBeforeConnect();
+    // disableBeforeConnect();
 }
 
 Client::~Client()
 {
     delete ui;
+    delete model;
+}
+
+void Client::closeEvent(QCloseEvent *)
+{
+    if (isConnect) {
+        ftpQUIT();
+    }
 }
 
 void Client::on_connectButton_clicked()
@@ -31,7 +39,11 @@ void Client::on_connectButton_clicked()
     cmdSocket.abort();
     writeCMDLine("Connect to " + host + ":" + port + ".", INFO);
     cmdSocket.connectToHost(host, getPort(port));
-    cmdSocket.waitForConnected(1000);
+
+    if (cmdSocket.waitForConnected(3000) == false) {
+        QMessageBox::critical(this, "Error", "Cann't connect server.");
+        writeCMDLine("Cann't connect server.", ERROR);
+    }
 }
 
 void Client::on_quitButton_clicked()
@@ -56,6 +68,15 @@ void Client::on_refreshButton_clicked()
     ftpLIST();
 }
 
+void Client::on_fileView_doubleClicked(const QModelIndex& index)
+{
+    if (model->data(model->index(index.row(), 2)).toString() == "文件夹") {
+        ftpCWD(model->data(model->index(index.row(), 0)).toString());
+
+        if (refresh) { ftpPWD(); ftpLIST(); refresh = false; }
+    }
+}
+
 void Client::connected()
 {
     isConnect = true;
@@ -72,21 +93,12 @@ void Client::disconnected()
     writeCMDLine("----------------------------------", DEFAULT);
 }
 
-void Client::error(QAbstractSocket::SocketError)
-{
-    if (!isConnect) {
-        writeCMDLine("Cann't connect server.", ERROR);
-    }
-}
-
 void Client::makeConnection()
 {
     connect(&cmdSocket, SIGNAL(connected()), this,
             SLOT(connected()));
     connect(&cmdSocket, SIGNAL(disconnected()), this,
             SLOT(disconnected()));
-    connect(&cmdSocket, SIGNAL(error(QAbstractSocket::SocketError)), this,
-            SLOT(error(QAbstractSocket::SocketError)));
 }
 
 void Client::initializeModel()
@@ -96,6 +108,9 @@ void Client::initializeModel()
     model->setHorizontalHeaderItem(1, new QStandardItem("修改日期"));
     model->setHorizontalHeaderItem(2, new QStandardItem("类型"));
     model->setHorizontalHeaderItem(3, new QStandardItem("大小"));
+
+    // 按类型排序
+    model->sort(2, Qt::DescendingOrder);
 
     // 应用模型
     ui->fileView->setModel(model);
@@ -129,10 +144,9 @@ void Client::disableBeforeLogin()
     ui->loginButton->setEnabled(true);
     ui->modeBox->setChecked(false);
     ui->pwdEdit->setText("");
-    ui->fileBox->setEnabled(false);
-
     model->clear();
     initializeModel();
+    ui->fileBox->setEnabled(false);
 }
 
 void Client::ableAfterLogin()
@@ -165,7 +179,7 @@ void Client::createDataSocket()
     if (!ui->modeBox->isChecked()) {
         dataSocket = new QTcpSocket;
         dataSocket->connectToHost(ip, getPort(port));
-        dataSocket->waitForConnected(1000);
+        dataSocket->waitForConnected(3000);
     }
     else {
         if (listenSocket.waitForNewConnection(1000)) {
@@ -181,43 +195,57 @@ void Client::createDataSocket()
 
 void Client::dealWithDataSocket(DEALMODE mode)
 {
-    if (dataSocket->waitForReadyRead()) {
-        switch (mode) {
-        case LIST: {
-            QString resp;
+    switch (mode) {
+    case LIST: {
+        QString resp;
 
+        if (dataSocket->waitForReadyRead(1000)) {
             while (dataSocket->bytesAvailable()) {
                 char buffer[1024] = { 0 };
                 dataSocket->readLine(buffer, 1024);
                 resp += buffer;
             }
-            QStringList list = resp.split("\r\n");
-
-            model->clear();
-
-            for (auto iter = list.begin(); iter != list.end() - 1; ++iter) {
-                QStringList listlist = (*iter).simplified().split(" ");
-                QList<QStandardItem *> row;
-                row.append(new QStandardItem(listlist[NAME]));
-                row.append(new QStandardItem(listlist[MONTH] + " " +
-                                             listlist[DAY] + " " +
-                                             listlist[TIME]));
-                row.append(new QStandardItem(listlist[PERMISSION][0] ==
-                                             'd' ? "文件夹" : ""));
-                row.append(new QStandardItem(listlist[PERMISSION][0] ==
-                                             'd' ? "" : listlist[SIZE]));
-                model->appendRow(row);
-            }
-
-            initializeModel();
-            break;
         }
 
-        case RETR:
-        case STOR:
-            break;
+        QStringList list = resp.split("\r\n");
+
+        model->clear();
+
+        for (auto iter = list.begin(); iter != list.end() - 1; ++iter) {
+            QStringList listlist = (*iter).simplified().split(" ");
+            QList<QStandardItem *> row;
+            row.append(new QStandardItem(listlist[NAME]));
+            row.append(new QStandardItem(listlist[MONTH] + " " +
+                                         listlist[DAY] + " " +
+                                         listlist[TIME]));
+            row.append(new QStandardItem(listlist[PERMISSION][0] ==
+                                         'd' ? "文件夹" : ""));
+
+            row.append(new QStandardItem(listlist[PERMISSION][0]
+                                         == 'd' ? "" : getSizeString(listlist[
+                                                                         SIZE])));
+            model->appendRow(row);
         }
+
+        // 加入..
+        QList<QStandardItem *> row;
+        row.append(new QStandardItem(".."));
+        row.append(new QStandardItem(""));
+        row.append(new QStandardItem("文件夹"));
+        row.append(new QStandardItem(""));
+        model->insertRow(0, row);
+
+        initializeModel();
+        break;
     }
+
+    case RETR:
+    case STOR:
+        break;
+    }
+
+    // 关闭数据传输
+    closeDataSocket();
 }
 
 void Client::closeDataSocket()
@@ -229,10 +257,10 @@ void Client::closeDataSocket()
 void Client::putLine(QString cmd)
 {
     if (!isConnect) {
-        throw QString("Time out.");
+        throw QString("Not connect.");
     }
     cmdSocket.write(cmd.toLatin1(), cmd.length());
-    cmdSocket.waitForBytesWritten(1000);
+    cmdSocket.waitForBytesWritten(3000);
 }
 
 QString Client::getResp()
@@ -241,7 +269,7 @@ QString Client::getResp()
         return "";
     }
 
-    if (cmdSocket.waitForReadyRead(1000) == false) {
+    if (cmdSocket.waitForReadyRead(3000) == false) {
         throw QString("Time out.");
     }
     QString resp;
@@ -307,6 +335,56 @@ void Client::writeCMDLine(QString str, WRITETYPE type)
     QString html = "<span style='color:" + color + ";'>" + str + "</span><br/>";
 
     ui->cmdLine->append(html);
+}
+
+QString Client::getSizeString(QString o_size)
+{
+    long long size = o_size.toLongLong();
+    QVector<long long> sizelist;
+
+    long long base = 1;
+
+    for (int i = 0; i < 4; i++) {
+        base *= 1024;
+    }
+
+    while (size > 0 && base > 0) {
+        sizelist.push_back(size / base);
+        size %= base;
+        base /= 1024;
+    }
+
+    QString sizeString;
+
+    for (int i = 0; i < sizelist.size(); i++) {
+        if (sizelist[i] != 0) {
+            sizeString += QString::number(sizelist[i]);
+
+            switch (i) {
+            case 0:
+                sizeString += "TB";
+                break;
+
+            case 1:
+                sizeString += "GB";
+                break;
+
+            case 2:
+                sizeString += "MB";
+                break;
+
+            case 3:
+                sizeString += "KB";
+                break;
+
+            case 4:
+                sizeString += "B";
+                break;
+            }
+            break;
+        }
+    }
+    return sizeString;
 }
 
 void Client::ftpLogin(QString user, QString passwd)
@@ -445,12 +523,24 @@ void Client::ftpLIST()
         // 处理数据
         dealWithDataSocket(LIST);
 
-        // 关闭数据传输
-        closeDataSocket();
-
         // 回应消息2
         resp = getResp();
         writeCMDLine(resp, RECEIVE);
+    } catch (QString& e) {
+        QMessageBox::critical(this, "Error", e);
+        writeCMDLine(e, ERROR);
+        squeeze();
+    }
+}
+
+void Client::ftpCWD(QString dir)
+{
+    try {
+        QString cmd = "CWD " + dir;
+        writeCMDLine(cmd,  SEND);
+        QString resp = putCMD(cmd + "\r\n");
+        writeCMDLine(resp, RECEIVE);
+        refresh = true;
     } catch (QString& e) {
         QMessageBox::critical(this, "Error", e);
         writeCMDLine(e, ERROR);

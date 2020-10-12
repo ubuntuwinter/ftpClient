@@ -23,11 +23,14 @@ public:
     Client(QWidget *parent = nullptr);
     ~Client();
 
+protected:
+
+    void closeEvent(QCloseEvent *) override;
+
 private slots:
 
-    void connected();                                     // 成功连接
-    void disconnected();                                  // 连接断开
-    void error(QAbstractSocket::SocketError socketError); // 失败
+    void connected();    // 成功连接
+    void disconnected(); // 连接断开
 
 private slots:
 
@@ -35,6 +38,7 @@ private slots:
     void on_quitButton_clicked();
     void on_loginButton_clicked();
     void on_refreshButton_clicked();
+    void on_fileView_doubleClicked(const QModelIndex& index);
 
 private:
 
@@ -46,7 +50,7 @@ private:
     QString port;                       // 端口
     QStandardItemModel *model;          // 文件数据模型
     bool isConnect { false };           // 是否连接
-    bool isLogin { false };             // 是否登录
+    bool refresh { false };             // 是否登录
 
 private:
 
@@ -66,17 +70,19 @@ private:
     QString putCMD(QString cmd);               // 发送命令
     void    writeCMDLine(QString   str,
                          WRITETYPE type);      // 写入命令行
+    QString getSizeString(QString size);       // 获取大小的字符串表示
 
     // ftp命令
-    void ftpLogin(QString user,
-                  QString passwd); // 登录
-    void ftpQUIT();                // 退出
-    void ftpUSER(QString user);    // 用户名
-    void ftpPASS(QString passwd);  // 密码
-    void ftpPWD();                 // 显示当前目录
-    void ftpTYPE();                // 编码
-    void ftpPORT();                // 主动模式
-    void ftpPASV();                // 被动模式
-    void ftpLIST();                // 显示当前目录下文件
+    void    ftpLogin(QString user,
+                     QString passwd); // 登录
+    void    ftpQUIT();                // 退出
+    void    ftpUSER(QString user);    // 用户名
+    void    ftpPASS(QString passwd);  // 密码
+    void    ftpPWD();                 // 显示当前目录
+    void    ftpTYPE();                // 编码
+    void    ftpPORT();                // 主动模式
+    void    ftpPASV();                // 被动模式
+    void    ftpLIST();                // 显示当前目录下文件
+    void    ftpCWD(QString dir);      // 进入目录
 };
 #endif // CLIENT_H
