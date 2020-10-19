@@ -46,8 +46,7 @@ private slots:
     void on_downloadButton_clicked();                         // 下载
     void on_renameButton_clicked();                           // 重命名
     void on_fileView_doubleClicked(const QModelIndex& index); // 双击
-
-    void on_abortButton_clicked();
+    void on_abortButton_clicked();                            // 中止
 
 private:
 
@@ -61,6 +60,7 @@ private:
     bool canWrite { true };             // 是否写入命令行
     bool isConnect { false };           // 是否连接
     bool refresh { false };             // 是否登录
+    bool info{ false };                 // 是否提示
 
 private:
 

@@ -78,6 +78,11 @@ void Client::on_newButton_clicked()
 
     ftpMKD(newDirName);
 
+    if (info) {
+        QMessageBox::information(this, "提示", "新建成功！");
+        info = false;
+    }
+
     if (refresh) { ftpLIST(); refresh = false; }
 }
 
@@ -85,10 +90,28 @@ void Client::on_deleteButton_clicked()
 {
     QModelIndex index = ui->fileView->currentIndex();
 
+    if (model->data(model->index(index.row(), 0)).toString() == "..") {
+        return;
+    }
+
+    if (QMessageBox::question(this,
+                              "提示",
+                              "确实要删除吗?",
+                              QMessageBox::Yes |
+                              QMessageBox::No)
+        != QMessageBox::Yes) {
+        return;
+    }
+
     if (model->data(model->index(index.row(), 2)).toString() == "文件夹") {
         ftpRMD(model->data(model->index(index.row(), 0)).toString());
     } else {
         ftpDELE(model->data(model->index(index.row(), 0)).toString());
+    }
+
+    if (info) {
+        QMessageBox::information(this, "提示", "删除成功！");
+        info = false;
     }
 
     if (refresh) { ftpLIST();  refresh = false; }
@@ -102,6 +125,11 @@ void Client::on_renameButton_clicked()
     if (newName.isEmpty()) return;
 
     ftpRename(model->data(model->index(index.row(), 0)).toString(), newName);
+
+    if (info) {
+        QMessageBox::information(this, "提示", "重命名成功！");
+        info = false;
+    }
 
     if (refresh) { ftpLIST();  refresh = false; }
 }
@@ -117,6 +145,11 @@ void Client::on_uploadButton_clicked()
         QStringList list = openFile.split("/");
         QString     filename = *(list.end() - 1);
         ftpSTOR(openFile, filename);
+    }
+
+    if (info) {
+        QMessageBox::information(this, "提示", "上传成功！");
+        info = false;
     }
 
     if (refresh) { ftpLIST();  refresh = false; }
@@ -140,6 +173,11 @@ void Client::on_downloadButton_clicked()
 
         if (!saveFile.isEmpty()) {
             ftpRETR(saveFile, remoteFileName);
+        }
+
+        if (info) {
+            QMessageBox::information(this, "提示", "下载完成！");
+            info = false;
         }
     }
 }
@@ -698,6 +736,7 @@ void Client::ftpMKD(QString newDirName)
         QString resp = putCMD(cmd + "\r\n");
         writeCMDLine(resp, RECEIVE);
         refresh = true;
+        info = true;
     } catch (QString& e) {
         QMessageBox::critical(this, "Error", e);
         writeCMDLine(e, ERROR);
@@ -713,6 +752,7 @@ void Client::ftpRMD(QString dirname)
         QString resp = putCMD(cmd + "\r\n");
         writeCMDLine(resp, RECEIVE);
         refresh = true;
+        info = true;
     } catch (QString& e) {
         QMessageBox::critical(this, "Error", e);
         writeCMDLine(e, ERROR);
@@ -728,6 +768,7 @@ void Client::ftpDELE(QString filename)
         QString resp = putCMD(cmd + "\r\n");
         writeCMDLine(resp, RECEIVE);
         refresh = true;
+        info = true;
     } catch (QString& e) {
         QMessageBox::critical(this, "Error", e);
         writeCMDLine(e, ERROR);
@@ -741,6 +782,7 @@ void Client::ftpRename(QString oldname, QString newname)
         ftpRNFR(oldname);
         ftpRNTO(newname);
         refresh = true;
+        info = true;
     } catch (QString& e) {
         QMessageBox::critical(this, "Error", e);
         writeCMDLine(e, ERROR);
@@ -800,6 +842,9 @@ void Client::ftpSTOR(QString localFileName, QString remoteFileName)
 
         // 刷新
         refresh = true;
+
+        // 提示
+        info = true;
     } catch (QString& e) {
         QMessageBox::critical(this, "Error", e);
         writeCMDLine(e, ERROR);
@@ -836,6 +881,9 @@ void Client::ftpRETR(QString localFileName, QString remoteFileName)
         // 回应消息2
         resp = getResp();
         writeCMDLine(resp, RECEIVE);
+
+        // 提示
+        info = true;
     } catch (QString& e) {
         QMessageBox::critical(this, "Error", e);
         writeCMDLine(e, ERROR);
