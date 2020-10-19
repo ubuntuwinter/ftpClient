@@ -67,6 +67,7 @@ void Client::on_loginButton_clicked()
 
 void Client::on_refreshButton_clicked()
 {
+    ftpPWD();
     ftpLIST();
 }
 
@@ -83,7 +84,7 @@ void Client::on_newButton_clicked()
         info = false;
     }
 
-    if (refresh) { ftpLIST(); refresh = false; }
+    if (refresh) { ftpPWD(); ftpLIST(); refresh = false; }
 }
 
 void Client::on_deleteButton_clicked()
@@ -114,7 +115,7 @@ void Client::on_deleteButton_clicked()
         info = false;
     }
 
-    if (refresh) { ftpLIST();  refresh = false; }
+    if (refresh) { ftpPWD(); ftpLIST();  refresh = false; }
 }
 
 void Client::on_renameButton_clicked()
@@ -131,7 +132,7 @@ void Client::on_renameButton_clicked()
         info = false;
     }
 
-    if (refresh) { ftpLIST();  refresh = false; }
+    if (refresh) { ftpPWD(); ftpLIST();  refresh = false; }
 }
 
 void Client::on_uploadButton_clicked()
@@ -152,7 +153,7 @@ void Client::on_uploadButton_clicked()
         info = false;
     }
 
-    if (refresh) { ftpLIST();  refresh = false; }
+    if (refresh) { ftpPWD(); ftpLIST();  refresh = false; }
 }
 
 void Client::on_downloadButton_clicked()
